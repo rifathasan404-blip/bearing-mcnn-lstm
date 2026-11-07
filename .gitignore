@@ -1,0 +1,9 @@
+# Python
+.venv/
+__pycache__/
+
+# Data: ignore contents, keep the folders
+data/raw/*
+data/processed/*
+!data/raw/.gitkeep
+!data/processed/.gitkeep
