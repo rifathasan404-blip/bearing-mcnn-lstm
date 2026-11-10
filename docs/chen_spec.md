@@ -18,7 +18,7 @@
 | D1 | Dataset | Case Western Reserve University (CWRU) bearing data | 5–6, 8 | STATED |
 | D2 | Bearing | SKF 6205-2RS JEM deep-groove ball bearing | 5 | STATED |
 | D3 | Sensor / channel | Accelerometer at the drive end (DE) | 8; Table 1 (p.7) | STATED |
-| D4 | Variable in the `.mat` file | `X###_DE_time` | — | INFERRED (follows from D3) |
+| D4 | Variable in the `.mat` file | `X###_DE_time` (number zero-padded to 3 digits, e.g. `X097_DE_time`) | — | INFERRED (follows from D3); naming confirmed in our files, see 1a |
 | D5 | Sampling rate | 48 kHz | 8 | STATED |
 | D6 | Motor load / speed | 3 hp, 1730 rpm | 8; Table 1 | STATED |
 | D7 | Fault types | Ball (rolling element), inner race, outer race | 8 | STATED |
@@ -28,6 +28,29 @@
 | D11 | Label mapping | 0 B007 · 1 B014 · 2 B021 · **3 Normal** · 4 IR007 · 5 IR014 · 6 IR021 · 7 OR007@6 · 8 OR014@6 · 9 OR021@6 | Table 1 | STATED |
 | D12 | CWRU file numbers | 125, 192, 229, 100, 112, 177, 217, 138, 204, 241 (same order as D11) | — | INFERRED (from D5–D11 + our manifest) |
 | D13 | Sampling rate of normal file `100.mat` | Paper implies 48 kHz for all files; CWRU site does not state it | 8 | UNKNOWN (verify by sample count) |
+
+### 1a. Measured from our own files (not from the paper)
+
+Source: `notebooks/00_data_inventory.ipynb`, run 2026-11-10. These rows are **MEASURED**: facts read from the `.mat` files, independent of what Chen states. Neither file is one of Chen's ten (D12); they were opened to learn the file layout.
+
+| # | What was checked | `97.mat` (Normal, 0 hp) | `105.mat` (IR007, 0 hp, 12k drive end) |
+|---|---|---|---|
+| M1 | Folder | `data/raw/normal` | `data/raw/12k_drive_end` |
+| M2 | Signal keys | `X097_DE_time`, `X097_FE_time` | `X105_DE_time`, `X105_FE_time`, `X105_BA_time` |
+| M3 | Base (BA) channel present? | **No** | Yes |
+| M4 | Speed key | `X097RPM`, shape (1, 1), uint16 | `X105RPM`, shape (1, 1), uint16 |
+| M5 | Signal shape / dtype | (243938, 1), float64 | (121265, 1), float64 |
+| M6 | Readings in `DE_time` | 243 938 | 121 265 |
+| M7 | Sampling rate used for M8 | 48 000 Hz (**assumed**, typed by hand) | 12 000 Hz (from the folder name) |
+| M8 | Duration = M6 / M7 | 5.08 s | 10.11 s |
+
+What this means for the loader and the spec:
+
+- **Signals are column vectors** of shape (N, 1). The loader must flatten them to (N,).
+- **The key set differs between files** (no `BA_time` in `97.mat`). The loader must find the DE key by its `DE_time` suffix and must not assume a fixed list of keys.
+- **The RPM value itself was not printed**, only its shape. Print it for each file and compare with D6.
+- **D13 is still open.** A sample count cannot prove a sampling rate: 243 938 readings is 5.08 s at 48 kHz or 20.33 s at 12 kHz, and both are possible. To settle it, find the shaft-frequency peak in the FFT of `100.mat` and check it sits at RPM / 60.
+- **W5 needs the lengths of Chen's ten files.** 240 non-overlapping windows need 480 000 readings. `97.mat` has only 243 938, so run the same count on the ten files in D12 before deciding whether non-overlap is possible.
 
 ## 2. Sample construction (windowing)
 
